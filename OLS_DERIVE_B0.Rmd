@@ -1,0 +1,186 @@
+---
+title: "Deriving Ordinary Least Squares Estimators in Excruciating Detail (Part 1)"
+author: "Erik Case"
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library (reshape)
+library(knitr)
+library(ggvis)
+library(dplyr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Revisiting a Classic - Because Why?
+
+Let's face it, finding the 'best' fit line via Ordinary Least Squares (OLS) just isn't sexy in today's world of more exotic methodological predictive techniques. Hell, the technique as we know it [is over 300 years old](http://www.stat.cmu.edu/~cshalizi/rmarkdown/rmarkdown.Rmd) Why devote my inaugural post to something that is covered ad-nauseum in all baby stats courses? 
+
+My primary motivation for covering the derivation of $\hat\beta_0$ and $\hat\beta_1$ is to fill in some of the algebraic scaffolding left out of the online tutorials I have found on this topic. Most people assume you are following every algebraic shortcut they make and I feel some people might benefit by seeing the estimators derived in more delicious/excruciating detail. I am also benefiting by reviewing the inner machinations of this classic technique.
+
+The second reason is that OLS has a special place in my heart (and with many modelers) as my entree into the world of data science and applied statistics. I would have sworn up and down that I really wasn't a 'math person' until I was rudely awakened by a course called Multivariate Regression Analysis. Despite now being a data scientist I'm still not even a 'math person,' in so much as that it comes to me not by ease of intuition, but by plodding, deliberate study.  
+
+But OLS  made me question my self assessment of ineptitude and turned me on to a career in statistics because it was *able* to draw me in was it's pure elegance and intuitive accessibility to the non-expert. When the concept of a best fit line through a stochastic process was explained to me, it immediately, from a conceptual standpoint, *made sense* , leaving me thinking "This is kind of fun. What if I could do this for a living?" Smash cut to today and that's exactly what happened. I never use vanilla OLS on a day to day basis and if I did, it would at the very least have some L1 and L2 regularization in the mix - but that is for another post. It is, however, the grandaddy of all predictive algorithms and a pretty sight to behold in it's power.
+
+##Best Fitting Line
+
+Take for example this totally made up (by me) and simulated plot of Ferbie Sales (in 1000's) and Violent Crime in the United States
+
+```{r,echo=FALSE, warning=FALSE}
+library(dplyr)
+library(ggvis)
+
+Ferbie_Sales<-rnorm(100) + 10
+
+eps<-rnorm(100,0,3)
+
+Violent_Crime<-as.numeric(50 + 5*Ferbie_Sales + eps)
+
+require(reshape2)
+d <- cbind(Violent_Crime, Ferbie_Sales)
+
+d2<-as.data.frame(d)
+
+d2 %>%
+ ggvis(~Ferbie_Sales, ~ Violent_Crime, stroke:="blue") %>%
+  layer_points()
+```
+
+
+Most people can instinctively intuit from the plot that there appears to be a positive relationship between Ferbie sales and violent crime. This is great as I now have data to back up my intuition and can take my parole officer's advice to stop just yelling the theory to random pedestrians on the street.
+
+But I could even better articulate my data driven hypothesis by estimating the *magnitude* of the relationship in the form of drawing a line that captures the general essence of the relationship. If this line, expressed as rise over run formulation, was accurately calculated it would tell us by how much our dependent variable changed and by what direction *on average* when we vary our independent variables. Quantifying the linear relationship between an explanatory variable and an event of interest is, as you can imagine, of interest to policymakers, business people, and nerds.
+
+```{r,echo=FALSE, warning=FALSE}
+
+d2 %>% 
+  ggvis(~Ferbie_Sales, ~ Violent_Crime, stroke:="blue") %>%
+  layer_points() %>%
+  layer_model_predictions(model = "lm", stroke := "orange", fill := "orange")
+```
+
+How do we get that line, though, that that quantifies this relationship? OLS helps us pick the best line and determine the relationship by defining 'best' as a line that minimizes the average squared distance of the points in this stochastic process. However, note that the previous plot doesn't show us what origin (if any) to pass the line through ($\hat\beta_0$). 
+
+The $\hat\beta_0$ is kind of the Jan to $\hat\beta_1$'s Marsha, but like Jan it occasionally has some interesting things to say.
+
+It tells us, for example which is what would our dependent variable be if our explanatory variable was set to 0.  In other the above simulated data set, it would answer the question: "what kind of utopia would we live in where Ferbie sales were nonexistent (i.e. set to 0)?"
+
+Let's get started.
+
+First, explicitly define error ($E$) in the manner previously mentioned:
+
+ $$E = {(y_i - \hat\beta_0 - \hat\beta_1x_i)^2}$$
+
+We want to find the line that minimizes $E$ and get from this problem
+
+  $$\underset{\hat\beta_0 \hat\beta_1}{\text{min}}\displaystyle\sum_{i=1}^{n}{(y_i - \hat\beta_0 - \hat\beta_1x_i)^2}$$
+
+
+To this simple classic equation:
+
+$$\hat\beta_0 = \bar{y} - \hat\beta_1 \bar{x}$$
+
+
+This is much, much easier to handle. Once you also have it's $\hat\beta_1$ component you can actually work out the OLS estimates by hand using a small data set. 
+
+Note that in the above minimization problem we only have the power to change the values of $\hat\beta_0$ and $\hat\beta_1$ This means, in other words, that the values we pick for $\hat\beta_0$ and $\hat\beta_1$ must be optimal over *all* values of $x_i$ and $y_i$
+
+This begs the question - how will I know when I've minimized $E$ with respect to $\hat\beta_0$? Well, if a best solution exists, there should be a value of $\hat\beta_0$ that resides at a local minimum for the error $E$. With the right value for the Beta slope of the error is flat. This what is known as minimizing the residual sum of squares.
+
+If $\hat\beta_0$ and$\hat\beta_1$ are chosen correctly then any perturbation away from that choice will have an error slope of zero.
+
+Suppose that have some function and we've initially guessed on the following values for our parameters:
+
+$\hat\beta_0 = 2$
+
+$\hat\beta_1 = 3$
+
+And that the error from these choices is:
+
+$E(2,3) = 5$
+
+Then, we nudge $\hat\beta_0$ a little bit and see what happens to the error:
+
+$\hat\beta_0 = 2.1$
+
+$\hat\beta_1 = 3$
+
+$E(2.1,3) = 5.1$
+
+Small increase. Ok. But then what if we nudge $\hat\beta_0$ *the other direction* and get the following:
+
+$\hat\beta_0 = 1.9$
+
+$\hat\beta_1 = 3$
+
+$E(1.9,3) = 4.9$
+
+A symmetrical decrease like this would be a problem. It means that we have not reached a local minimum. In this hypothetical scenario the error went down symmetrically more or less and therefore the values of$\hat\beta_0$ and $\hat\beta_1$ are  not on the lowest, flattest point of the error curve. What we are going for is a situation where the change is small relative to the input change by *some order of magnitude*.
+
+Picture a marble running up and down the sides of a bowl. When you first let it go it swings up and down the sides of the bowl but eventually starts to settle. That is where you want  your error fluctuations to be. That is where you have reached your local mimima. This is the point of minimized sum of squared residuals.
+
+Today we are looking for the value of $\hat\beta_0$ that achieves this, but there is that pesky problem of the fact that our argument requires us take into account both $\hat\beta_0$ and $\hat\beta_1$ No worries, multivariate calculus will help us do that.
+
+To tackle this let us set the partial derivatives of $E$ with respect to the betas to 0 so that we can measure the immediate comparable change when we nudge one the betas and hold the other steady.
+
+$$\frac{\partial E}{\partial \hat\beta_1} = 0$$
+
+
+$$\frac{\partial E}{\partial \hat\beta_0} = 0$$
+
+Using the sum rule form of distribution, the derivative can be moved inside:
+
+ $$\displaystyle\sum_{i=1}^{n}\frac{\partial }{\partial \hat\beta_0} {(y_i - \hat\beta_0 - \hat\beta_1x_i)^2 }= 0$$
+
+Then apply the chain rule to get:
+
+$$\displaystyle\sum_{i=1}^{n}2{(y_i - \hat\beta_0 - \hat\beta_1x_i)} (-1)$$
+
+and set to 0 :
+
+$$\displaystyle\sum_{i=1}^{n}2{(y_i - \hat\beta_0 - \hat\beta_1x_i)} (-1) = 0$$
+
+Next factor out the 2
+
+$$2\displaystyle\sum_{i=1}^{n}{(y_i - \hat\beta_0 - \hat\beta_1x_i)} (-1) = 0$$
+
+Factor out the $-1$ and divide both sides by $2$. Finally, also divide by $-1$ to simplify 
+
+$$\displaystyle\sum_{i=1}^{n}{(y_i - \hat\beta_0 - \hat\beta_1x_i)}  = 0$$
+
+Again, this is saying that the derivative of the sum of squared residuals with respect to $\hat\beta_0$ should add to 0. From here we distribute the summation operator ($\sum$) across the sum as such:
+
+
+$$\displaystyle\sum_{i=1}^{n}{y_i - \sum_{i=1}^{n}\hat\beta_0 - \sum_{i=1}^{n}\hat\beta_1x_i }  = 0$$
+
+
+Things start to move pretty quickly here. 
+
+
+For starters, see that the sum of $y$ from the first observation to the '$nth$' is the same thing as $N$ times the average of $y$. Because the sum of our $\hat\beta_0$  is simply a constant repeating over and over, it is the same thing as $N \cdot \hat\beta_0$. Finally in the this step, we can factor out the  $\hat\beta_1x_i$ and move it to the left of the summation operator :
+
+$$N\bar y + N(-\hat\beta_0)  -\hat\beta_1\displaystyle\sum_{i=1}^{n}x_i$$
+
+Now that the -$\hat\beta_1$ is outside the $\displaystyle\sum_{i=1}^{n}x_i$, the latter can also be re-written can be written as $N\bar x$
+
+
+$$N\bar y + N(-\hat\beta_0)  -\hat\beta_1\ N\bar x$$
+
+We can factor $N$ because of the distributive law:
+
+$$N(\bar y - \hat\beta_0  -\hat\beta_1\ \bar x)$$
+
+Divide by $N$ to get rid of it
+
+Now we have the penultimate step:
+
+$$\bar y - \hat\beta_0  -\hat\beta_1\ \bar x = 0$$
+
+Finally, solve for $\hat\beta_0$
+
+$$\bar y   -\hat\beta_1\ \bar x = \hat\beta_0$$
+
+And there we have it, now we know where to put the $y$ intercept.$\hat\beta_0$ is the average of our dependent variable $y$ minus our yet to be determined estimate for $\hat\beta_1$ multiplied by the average of our independent variable. 
+
+In the next post, I will tackle the more difficult problem of using this new found knowledge to derive the formula for $\hat\beta_1$
